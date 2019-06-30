@@ -10,10 +10,10 @@ get_tuple(x) = (x...,)
 get_tuple() = nothing
 convert_type(x) = Base.convert(Array{Float32, 1}, x)
 
-ops[:Concat] = function (params, ip1, ip2)
-  s = vcall(:ndims, ip1)
+ops[:Concat] = function (params, ip...)
+  #s = vcall(:ndims, ip1, ip2, ip3, ip4)
 
-  return vcall(:cat, ip1, ip2, Symbol("dims =1"))
+  return vcall(:cat, ip..., Symbol("dims =1"))
 end
 
 ops[:Gemm] = function (params, A, B, C)
@@ -113,8 +113,9 @@ ops[:MaxPool] = function (params, x)
     push!(params[:kernel_shape], 1)
     n_size = vcall(:Tuple, vcall(:push!, vcall(:collect, vcall(:size, x)), 1))
     new_x = vcall(:reshape, x, n_size)
-    return vcall(:dropdims, vcall(:maxpool, new_x, (params[:kernel_shape]...,), Symbol("pad=$(params[:pads])"),
-        Symbol("stride=$((params[:strides]...,))")), Symbol("dims=4")) 
+    return vcall(:dropdims, vcall(vcall(:MaxPool, (params[:kernel_shape]...,), 
+      Symbol("pad=$((params[:pads]...,))"),Symbol("stride=$((params[:strides]...,))")), new_x), 
+        Symbol("dims=4")) 
   end
   
   vcall(vcall(:MaxPool, (params[:kernel_shape]...,), Symbol("pad=$((params[:pads]...,))"),Symbol("stride=$((params[:strides]...,))")), x)
@@ -141,8 +142,8 @@ ops[:AveragePool] = function (params, x)
     push!(params[:kernel_shape], 1)
     n_size = vcall(:Tuple, vcall(:push!, vcall(:collect, vcall(:size, x)), 1))
     new_x = vcall(:reshape, x, n_size)
-    return vcall(:dropdims, vcall(:meanpool, new_x, (params[:kernel_shape]...,), Symbol("pad=$((params[:pads]...,))"),
-        Symbol("stride=$((params[:strides]...,))")), Symbol("dims=4")) 
+    return vcall(:dropdims, vcall(vcall(:MeanPool, (params[:kernel_shape]...,), Symbol("pad=$((params[:pads]...,))"),
+    Symbol("stride=$((params[:strides]...,))")), new_x), Symbol("dims=4")) 
   end
   if params[:pads] == [0,0,0,0]
     return vcall(vcall(:MeanPool, (params[:kernel_shape]...,), Symbol("pad=$((params[:pads]...,))"),
@@ -355,9 +356,9 @@ ops[:LRN] = function(params, x)
   if !haskey(params, :beta)
     params[:beta] = 0.75
   end
-  #return vcall(vcall(:LRNorm, params[:bias], params[:size], params[:alpha], params[:beta]), x)
+  return vcall(vcall(:LRNorm, params[:bias], params[:size], params[:alpha], params[:beta]), x)
                                # currently, just bypassing the output
-  return vcall(:.+, 0, x)
+  #return vcall(:.+, 0, x)
 end
 
 #To-Do : add broadcast here (Urgent)
@@ -419,6 +420,10 @@ ops[:MatMul] = function(params, A, B)
   #tempa = vcall(:permutedims, A, vcall(:reverse, vcall(:range, 1, vcall(:ndims, A))))
   #tempb = vcall(:permutedims, B, vcall(:reverse, vcall(:range, 1, vcall(:ndims, B))))
   vcall(:*, B, A)
+end
+
+ops[:Shape] = function(params, A)
+  vcall(:size, A)
 end
 
 ops[:size] = function(params, A)
